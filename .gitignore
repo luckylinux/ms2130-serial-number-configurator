@@ -1,0 +1,4 @@
+# Ignore Devices Backup Folder
+devices
+devices/*
+devices/**
