@@ -25,6 +25,13 @@ Configure using random Serial and reduce Logging to a Minimum:
 sudo ./configure.py --executable ./ms-tools/cli/cli --log-level=2
 ```
 
+Configure using random Serial and reduce Logging to a Minimum and skip Backup:
+```
+sudo ./configure.py --executable=./ms-tools/cli/cli --serial=0123456789 --log-level=2 --no-backup
+```
+
+
+
 # References
 - https://github.com/BertoldVdb/ms-tools
 - https://github.com/ultrasemier/ms213x_community
