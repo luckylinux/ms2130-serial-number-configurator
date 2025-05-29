@@ -3,6 +3,7 @@
 
 # Import Libraries
 import argparse
+import pprint
 import re
 from secrets import choice
 import string
@@ -13,7 +14,30 @@ from datetime import datetime
 
 # Generate a random Serial Number
 def generate_random_serial(length: int = 31):
-    return ''.join([choice(string.ascii_uppercase + string.digits) for _ in range(length)])
+    return ''.join([choice(string.ascii_uppercase + string.digits) for _ in range(0, length)])
+
+# Flatten List
+# https://discuss.python.org/t/why-cant-iterable-unpacking-be-used-in-comprehension/15622/7
+#def flatten(a):
+#    return [c for b in a for c in flatten(b)] if hasattr(a, '__iter__') else [a]
+def flatten(lists):
+    flat = []
+    for item in lists:
+        if type(item) is type([]):
+            flat += flatten(item)
+        else:
+            flat += [item]
+    return flat
+
+# Number of Bytes per Character
+# UNICODE = 16 bits / 2 Bytes per ASCII Character
+character_num_bytes = 2
+
+# Store Serial Length
+store_serial_length: bool = False
+
+# Fixed Length Serial Number
+serial_fixed_length = 16
 
 # Main
 if __name__ == "__main__":
@@ -22,6 +46,9 @@ if __name__ == "__main__":
 
     parser.add_argument('-s', '--serial', dest="serial", default=None,
                         help='Use a custom Serial Number (if NOT set, a random Serial Number will be generated)')
+
+    parser.add_argument('-n', '--serial-length', dest="serial_length", required=False, type=int, default=16,
+                        help='Serial Number Length')
 
     parser.add_argument('-e', '--executable', dest="executable", required=True,
                         help='Path to ms-tools <cli> Executable')
@@ -35,6 +62,9 @@ if __name__ == "__main__":
     parser.add_argument('--backup', dest="backup", required=False, default=True,
                         help='Backup current Flash/EEPROM as well as the Flash/EEPROM after Modification', action=argparse.BooleanOptionalAction)
 
+    parser.add_argument('--dry-run', dest="dry_run", required=False, default=False,
+                        help='Perform a Dry Run (do NOT flash / patch)', action="store_true")
+
     # Generate Timestamp for Backups
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d-%H-%M-%S")
@@ -43,13 +73,24 @@ if __name__ == "__main__":
     parsed = parser.parse_args()
 
     if parsed.serial is None:
+        # Serial Length
+        serial_length = parsed.serial_length
+
         # Generate Random Serial Number
-        serial_number = generate_random_serial()
+        serial_number = generate_random_serial(length=serial_length)
     else:
+        # Get Serial Number
         serial_number = parsed.serial
+
+        # Get Length of Serial Number
+        # This Corresponds to the first Byte (uint8) at the Offset Position to be changed
+        serial_length = len(serial_number)
 
     # LOG Level
     log_level = parsed.log_level
+
+    # Dry Run
+    dry_run = parsed.dry_run
 
     # CLI Executable
     executable = parsed.executable
@@ -63,26 +104,24 @@ if __name__ == "__main__":
     # Full Path
     device_path = base_path.joinpath(serial_number)
 
-    # Get Length of Serial Number
-    # This Corresponds to the first Byte (uint8) at the Offset Position to be changed
-    serial_length = len(serial_number)
-
     # Sanity Check
     if serial_length < 2:
        print("ERROR: Serial Number must have at least 2 Characters")
        sys.exit(1)
-    elif serial_length > 31:
-       print("ERROR: Serial Number must have at most 31 Characters")
+    elif serial_length > serial_fixed_length:
+       print(f"ERROR: Serial Number must have at most {serial_fixed_length} Characters")
        sys.exit(2)
 
     # Add Padding to the End of the Serial Number
     padding_character = chr(255)
-    serial_number = serial_number + "".join([padding_character for x in range(serial_length, 31)])
+    serial_number = serial_number + "".join([padding_character for x in range(serial_length, serial_fixed_length)])
 
     # Define Start Addresses for the Serial in Hex
     # Does NOT seem to work
-    address_SerialnumString_hex = "0x00FB50"
-    address_U2SerialnumString_hex = "0x00FB70"
+    address_SerialnumString_hex = "0x00189F"
+    address_U2SerialnumString_hex = "0x0018E3"
+    # address_SerialnumString_hex = "0x00FB50"
+    # address_U2SerialnumString_hex = "0x00FB70"
     # address_SerialnumString_hex = "0x00FB20"
     # address_U2SerialnumString_hex = "0x00FB40"
 
@@ -91,24 +130,68 @@ if __name__ == "__main__":
     address_U2SerialnumString_dec = int(address_U2SerialnumString_hex, 0)
 
     # Generate Serial String in Decimal Format (inverse ASCII Table using "ord")
-    serial_inverse_ascii_dec_array = ["%02d" % serial_length]
-    serial_inverse_ascii_dec_array.extend(['%03d' % ord(x) for x in serial_number])
-    serial_inverse_ascii_dec = "%02d" % serial_length + ''.join(['%03d' % ord(x) for x in serial_number])
+    if store_serial_length is True:
+        serial_inverse_ascii_dec_array = ["%02d" % serial_length]
+        start_index = 2
+    else:
+        serial_inverse_ascii_dec_array = []
+        start_index = 0
+
+    if character_num_bytes == 2:
+        serial_inverse_ascii_dec_array.extend(flatten([['%03d' % ord(x) , "000"]  for x in serial_number]))
+    else:
+        serial_inverse_ascii_dec_array.extend(['%03d' % ord(x) for x in serial_number])
+
+    serial_inverse_ascii_dec = ''.join(serial_inverse_ascii_dec_array)
+
+    serial_inverse_ascii_dec_readable = ""
+    if store_serial_length is True:
+        serial_inverse_ascii_dec_readable = serial_inverse_ascii_dec[0:start_index] + '-'
+
+    serial_inverse_ascii_dec_readable = serial_inverse_ascii_dec_readable + '-'.join(re.findall('...?', serial_inverse_ascii_dec[start_index:None]))
 
     # Generate Serial String in Binary Format (inverse ASCII Table using "ord")
-    serial_inverse_ascii_bin_array = ["%08d" % int(bin(serial_length).lstrip("0b"))]
-    serial_inverse_ascii_bin_array.extend([('%08d' % int(bin(ord(x)).lstrip("0b"))) for x in serial_number])
-    serial_inverse_ascii_bin = "%08d" % int(bin(serial_length).lstrip("0b"))  + ''.join([('%08d' % int(bin(ord(x)).lstrip("0b"))) for x in serial_number])
+    if store_serial_length is True:
+        serial_inverse_ascii_bin_array = ["%08d" % int(bin(serial_length).lstrip("0b"))]
+        start_index = 8
+    else:
+        serial_inverse_ascii_bin_array = []
+        start_index = 0
+
+    if character_num_bytes == 2:
+        serial_inverse_ascii_bin_array.extend(flatten([[('%08d' % int(bin(ord(x)).lstrip("0b"))) , "00000000"] for x in serial_number]))
+    else:
+        serial_inverse_ascii_bin_array.extend(['%08d' % int(bin(ord(x)).lstrip("0b")) for x in serial_number])
+
+    serial_inverse_ascii_bin = ''.join(serial_inverse_ascii_bin_array)
+
+    serial_inverse_ascii_bin_readable = ""
+    if store_serial_length is True:
+        serial_inverse_ascii_bin_readable = serial_inverse_ascii_bin[0:start_index] + '-'
+
+    serial_inverse_ascii_bin_readable = serial_inverse_ascii_bin_readable + '-'.join(re.findall('........?', serial_inverse_ascii_bin[start_index:None]))
+
 
     # Generate Serial String in Hex Format (inverse ASCII Table using "ord")
-    serial_inverse_ascii_hex_array = [str(hex(serial_length).lstrip("0x"))]
-    serial_inverse_ascii_hex_array.extend([str(hex(ord(x)).lstrip("0x")) for x in serial_number])
-    serial_inverse_ascii_hex = str(hex(serial_length).lstrip("0x")) + ''.join([str(hex(ord(x)).lstrip("0x")) for x in serial_number])
+    if store_serial_length is True:
+        serial_inverse_ascii_hex_array = [str(hex(serial_length).lstrip("0x"))]
+        start_index = 1
+    else:
+        serial_inverse_ascii_hex_array = []
+        start_index = 0
 
-    # Convert in better Readable Representation
-    serial_inverse_ascii_dec_readable = serial_inverse_ascii_dec[0:2] + '-' + '-'.join(re.findall('...?', serial_inverse_ascii_dec[2:None]))
-    serial_inverse_ascii_bin_readable = serial_inverse_ascii_bin[0:8] + '-' + '-'.join(re.findall('........?', serial_inverse_ascii_bin[8:None]))
-    serial_inverse_ascii_hex_readable = serial_inverse_ascii_hex[0] + '-' + '-'.join(re.findall('..?', serial_inverse_ascii_hex[1:None]))
+    if character_num_bytes == 2:
+        serial_inverse_ascii_hex_array.extend(flatten([[str(hex(ord(x)).lstrip("0x")) , "00"] for x in serial_number]))
+    else:
+        serial_inverse_ascii_hex_array.extend([str(hex(ord(x)).lstrip("0x")) for x in serial_number])
+
+    serial_inverse_ascii_hex = ''.join(serial_inverse_ascii_hex_array)
+
+    serial_inverse_ascii_hex_readable = ""
+    if store_serial_length is True:
+        serial_inverse_ascii_hex_readable = serial_inverse_ascii_hex[0] + '-'
+
+    serial_inverse_ascii_hex_readable = serial_inverse_ascii_hex_readable + '-'.join(re.findall('..?', serial_inverse_ascii_hex[start_index:None]))
 
     # Convert list of Bytes to Decimal
     # serial_number_value = 0
@@ -143,13 +226,20 @@ if __name__ == "__main__":
     device_path.mkdir(exist_ok=True, parents=True)
 
     if backup:
-        # Backup current Firmware
-        ##### cmd_read = [executable, "--log-level=7", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.bin"]
-        ##### print(f"Executing BACKUP: {cmd_read}")
-        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.{timestamp}.bin"], shell=False, check=True)
+        if dry_run is False:
+            # Echo
+            print("Backup current Firmware from FLASH and EEPROM")
 
-        # Backup current EEPROM
-        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.original.eeprom.{timestamp}.bin"], shell=False, check=True)
+            # Backup current Firmware
+            ##### cmd_read = [executable, "--log-level=7", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.bin"]
+            ##### print(f"Executing BACKUP: {cmd_read}")
+            subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.{timestamp}.bin"], shell=False, check=True)
+
+            # Backup current EEPROM
+            subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.original.eeprom.{timestamp}.bin"], shell=False, check=True)
+        else:
+            # Echo
+            print("Dry Run: Backup Firmware")
 
     # Perform Modification (one go)
     #### subprocess.run([executable, "--log-level=7", "write", "FLASH", address_SerialnumString_hex, ], shell=True, check=True)
@@ -160,17 +250,51 @@ if __name__ == "__main__":
     #####    subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_SerialnumString_dec + index), str(value)], shell=False, check=True)
     #####    subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_U2SerialnumString_dec + index), str(value)], shell=False, check=True)
 
-    for index, value in enumerate(serial_inverse_ascii_hex_array[0:1]):
-        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(address_SerialnumString_dec + index), "0x" + str(value)], shell=False, check=True)
-        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(address_U2SerialnumString_dec + index), "0x" + str(value)], shell=False, check=True)
+    if dry_run is False:
+        # Echo
+        print("Write new Serial Number to FLASH / EEPROM")
+    else:
+        # Echo
+        print("Dry Run: Perform Operations")
+
+    if dry_run is False:
+        for index, value in enumerate(serial_inverse_ascii_hex_array):
+            # Echo
+            print(f"Write {str(value)} at Address {hex(address_SerialnumString_dec + index)}")
+
+            # Perform Operation
+            subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(address_SerialnumString_dec + index), "0x" + str(value)], shell=False, check=True)
+
+            # Echo
+            print(f"Write {str(value)} at Address {hex(address_U2SerialnumString_dec + index)}")
+
+            # Perform Operation
+            subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(address_U2SerialnumString_dec + index), "0x" + str(value)], shell=False, check=True)
 
     if backup:
-        # Backup Firmware after Modification
-        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", "0", f"--filename={device_path}/ms2130.modified.flash.{timestamp}.bin"], shell=False, check=True)
+        if dry_run is False:
+            # Echo
+            print("Backup current Firmware from FLASH and EEPROM")
 
-        # Backup EEPROM after Modification
-        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.modified.eeprom.{timestamp}.bin"], shell=False, check=True)
+            # Backup Firmware after Modification
+            subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", "0", f"--filename={device_path}/ms2130.modified.flash.{timestamp}.bin"], shell=False, check=True)
 
-    # Read Final Value
-    subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", hex(address_SerialnumString_dec), "32"], shell=False, check=True)
-    subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", hex(address_U2SerialnumString_dec), "32"], shell=False, check=True)
+            # Backup EEPROM after Modification
+            subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.modified.eeprom.{timestamp}.bin"], shell=False, check=True)
+
+        else:
+            # Echo
+            print("Dry Run: Backup Firmware")
+
+
+    if dry_run is False:
+        # Echo
+        print("Read Value at Address after Operations")
+
+        # Read Final Value
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", hex(address_SerialnumString_dec), "32"], shell=False, check=True)
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", hex(address_U2SerialnumString_dec), "32"], shell=False, check=True)
+
+    else:
+        # Echo
+        print("Dry Run: read Value at Address after Operations")

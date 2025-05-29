@@ -7,3 +7,8 @@ devices/**
 ms-tools
 ms-tools/*
 ms-tools/**
+
+# Ignore stock Firmware Folder
+stock-firmware
+stock-firmware/*
+stock-firmware/**
