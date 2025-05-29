@@ -9,6 +9,7 @@ import string
 from pathlib import Path
 import subprocess
 import sys
+from datetime import datetime
 
 # Generate a random Serial Number
 def generate_random_serial(length: int = 31):
@@ -19,18 +20,24 @@ if __name__ == "__main__":
     # Declare Arguments Parser
     parser = argparse.ArgumentParser(description='Configure new MS2310 Device.')
 
-    parser.add_argument('-s', '--serial', default=None,
+    parser.add_argument('-s', '--serial', dest="serial", default=None,
                         help='Use a custom Serial Number (if NOT set, a random Serial Number will be generated)')
 
-    parser.add_argument('-e', '--executable', required=True,
+    parser.add_argument('-e', '--executable', dest="executable", required=True,
                         help='Path to ms-tools <cli> Executable')
 
-    parser.add_argument('-b', '--base_path', required=False, default=Path().cwd().joinpath("devices"),
+    parser.add_argument('-b', '--base-path', dest="base_path", required=False, default=Path().cwd().joinpath("devices"),
                         help='Basepath where to save Stuff (<basepath>/<serial> will contain each Device Configuration & Firmware)')
 
-    parser.add_argument('-l', '--log_level', required=False, default="7",
+    parser.add_argument('-l', '--log-level', dest="log_level", required=False, default="7",
                         help='Log Level (0 ... 7)')
 
+    parser.add_argument('--backup', dest="backup", required=False, default=True,
+                        help='Backup current Flash/EEPROM as well as the Flash/EEPROM after Modification', action=argparse.BooleanOptionalAction)
+
+    # Generate Timestamp for Backups
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d-%H-%M-%S")
 
     # Parse Arguments
     parsed = parser.parse_args()
@@ -46,6 +53,9 @@ if __name__ == "__main__":
 
     # CLI Executable
     executable = parsed.executable
+
+    # Backup
+    backup = parsed.backup
 
     # Base Path where to save old and new Firmware / Configuration
     base_path = Path(parsed.base_path)
@@ -132,13 +142,14 @@ if __name__ == "__main__":
     # Create Folder Structure
     device_path.mkdir(exist_ok=True, parents=True)
 
-    # Backup current Firmware
-    ##### cmd_read = [executable, "--log-level=7", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.bin"]
-    ##### print(f"Executing BACKUP: {cmd_read}")
-    #subprocess.run([executable, f"--log-level={log_level}", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.bin"], shell=False, check=True)
+    if backup:
+        # Backup current Firmware
+        ##### cmd_read = [executable, "--log-level=7", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.bin"]
+        ##### print(f"Executing BACKUP: {cmd_read}")
+        subprocess.run([executable, f"--log-level={log_level}", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.{timestamp}.bin"], shell=False, check=True)
 
-    # Backup current EEPROM
-    #subprocess.run([executable, f"--log-level={log_level}", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.original.eeprom.bin"], shell=False, check=True)
+        # Backup current EEPROM
+        subprocess.run([executable, f"--log-level={log_level}", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.original.eeprom.{timestamp}.bin"], shell=False, check=True)
 
     # Perform Modification (one go)
     #### subprocess.run([executable, "--log-level=7", "write", "FLASH", address_SerialnumString_hex, ], shell=True, check=True)
@@ -153,12 +164,12 @@ if __name__ == "__main__":
         subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_SerialnumString_dec + index), "0x" + str(value)], shell=False, check=True)
         subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_U2SerialnumString_dec + index), "0x" + str(value)], shell=False, check=True)
 
+    if backup:
+        # Backup Firmware after Modification
+        subprocess.run([executable, f"--log-level={log_level}", "read", "FLASH", "0", f"--filename={device_path}/ms2130.modified.flash.{timestamp}.bin"], shell=False, check=True)
 
-    # Backup Firmware after Modification
-    #subprocess.run([executable, f"--log-level={log_level}", "read", "FLASH", "0", f"--filename={device_path}/ms2130.modified.flash.bin"], shell=False, check=True)
-
-    # Backup EEPROM after Modification
-    #subprocess.run([executable, f"--log-level={log_level}", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.modified.eeprom.bin"], shell=False, check=True)
+        # Backup EEPROM after Modification
+        subprocess.run([executable, f"--log-level={log_level}", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.modified.eeprom.{timestamp}.bin"], shell=False, check=True)
 
     # Read Final Value
     subprocess.run([executable, f"--log-level={log_level}", "read", "FLASH", hex(address_SerialnumString_dec), "32"], shell=False, check=True)

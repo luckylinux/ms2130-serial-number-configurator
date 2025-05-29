@@ -2,3 +2,8 @@
 devices
 devices/*
 devices/**
+
+# Ignore ms-tools Folder
+ms-tools
+ms-tools/*
+ms-tools/**
