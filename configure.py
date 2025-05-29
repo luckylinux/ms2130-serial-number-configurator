@@ -146,10 +146,10 @@ if __name__ == "__main__":
         # Backup current Firmware
         ##### cmd_read = [executable, "--log-level=7", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.bin"]
         ##### print(f"Executing BACKUP: {cmd_read}")
-        subprocess.run([executable, f"--log-level={log_level}", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.{timestamp}.bin"], shell=False, check=True)
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.{timestamp}.bin"], shell=False, check=True)
 
         # Backup current EEPROM
-        subprocess.run([executable, f"--log-level={log_level}", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.original.eeprom.{timestamp}.bin"], shell=False, check=True)
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.original.eeprom.{timestamp}.bin"], shell=False, check=True)
 
     # Perform Modification (one go)
     #### subprocess.run([executable, "--log-level=7", "write", "FLASH", address_SerialnumString_hex, ], shell=True, check=True)
@@ -160,17 +160,17 @@ if __name__ == "__main__":
     #####    subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_SerialnumString_dec + index), str(value)], shell=False, check=True)
     #####    subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_U2SerialnumString_dec + index), str(value)], shell=False, check=True)
 
-    for index, value in enumerate(serial_inverse_ascii_hex_array):
-        subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_SerialnumString_dec + index), "0x" + str(value)], shell=False, check=True)
-        subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_U2SerialnumString_dec + index), "0x" + str(value)], shell=False, check=True)
+    for index, value in enumerate(serial_inverse_ascii_hex_array[0:1]):
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(address_SerialnumString_dec + index), "0x" + str(value)], shell=False, check=True)
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(address_U2SerialnumString_dec + index), "0x" + str(value)], shell=False, check=True)
 
     if backup:
         # Backup Firmware after Modification
-        subprocess.run([executable, f"--log-level={log_level}", "read", "FLASH", "0", f"--filename={device_path}/ms2130.modified.flash.{timestamp}.bin"], shell=False, check=True)
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", "0", f"--filename={device_path}/ms2130.modified.flash.{timestamp}.bin"], shell=False, check=True)
 
         # Backup EEPROM after Modification
-        subprocess.run([executable, f"--log-level={log_level}", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.modified.eeprom.{timestamp}.bin"], shell=False, check=True)
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.modified.eeprom.{timestamp}.bin"], shell=False, check=True)
 
     # Read Final Value
-    subprocess.run([executable, f"--log-level={log_level}", "read", "FLASH", hex(address_SerialnumString_dec), "32"], shell=False, check=True)
-    subprocess.run([executable, f"--log-level={log_level}", "read", "FLASH", hex(address_U2SerialnumString_dec), "32"], shell=False, check=True)
+    subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", hex(address_SerialnumString_dec), "32"], shell=False, check=True)
+    subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", hex(address_U2SerialnumString_dec), "32"], shell=False, check=True)
