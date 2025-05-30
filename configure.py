@@ -11,15 +11,18 @@ from pathlib import Path
 import subprocess
 import sys
 from datetime import datetime
+from copy import copy
+
 
 # Generate a random Serial Number
-def generate_random_serial(length: int = 31):
+def generate_random_serial(length: int = 8):
     return ''.join([choice(string.ascii_uppercase + string.digits) for _ in range(0, length)])
+
 
 # Flatten List
 # https://discuss.python.org/t/why-cant-iterable-unpacking-be-used-in-comprehension/15622/7
-#def flatten(a):
-#    return [c for b in a for c in flatten(b)] if hasattr(a, '__iter__') else [a]
+# def flatten(a):
+#     return [c for b in a for c in flatten(b)] if hasattr(a, '__iter__') else [a]
 def flatten(lists):
     flat = []
     for item in lists:
@@ -28,6 +31,7 @@ def flatten(lists):
         else:
             flat += [item]
     return flat
+
 
 # Number of Bytes per Character
 # UNICODE = 16 bits / 2 Bytes per ASCII Character
@@ -47,7 +51,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--serial', dest="serial", default=None,
                         help='Use a custom Serial Number (if NOT set, a random Serial Number will be generated)')
 
-    parser.add_argument('-n', '--serial-length', dest="serial_length", required=False, type=int, default=16,
+    parser.add_argument('-n', '--serial-length', dest="serial_length", required=False, type=int, default=8,
                         help='Serial Number Length')
 
     parser.add_argument('-f', '--file', '--data-file', '--file-data', dest="data_file", required=False, default=None,
@@ -119,7 +123,8 @@ if __name__ == "__main__":
        sys.exit(2)
 
     # Add Padding to the End of the Serial Number
-    padding_character = chr(255)
+    # padding_character = chr(255)
+    padding_character = chr(000)
     serial_number = serial_number + "".join([padding_character for x in range(serial_length, serial_fixed_length)])
 
     # Define Start Addresses for the Serial in Hex
@@ -134,6 +139,8 @@ if __name__ == "__main__":
     # Convert Addresses to Decimal
     address_SerialnumString_dec = int(address_SerialnumString_hex, 0)
     address_U2SerialnumString_dec = int(address_U2SerialnumString_hex, 0)
+
+    print(f"Serial Number: {serial_number} (Length: {len(serial_number)})")
 
     # Generate Serial String in Decimal Format (inverse ASCII Table using "ord")
     if store_serial_length is True:
@@ -156,18 +163,20 @@ if __name__ == "__main__":
 
     serial_inverse_ascii_dec_readable = serial_inverse_ascii_dec_readable + '-'.join(re.findall('...?', serial_inverse_ascii_dec[start_index:None]))
 
+    print(serial_inverse_ascii_dec_readable)
+
     # Generate Serial String in Binary Format (inverse ASCII Table using "ord")
     if store_serial_length is True:
-        serial_inverse_ascii_bin_array = ["%08d" % int(bin(serial_length).lstrip("0b"))]
+        serial_inverse_ascii_bin_array = ["%08d" % int(bin(serial_length).removeprefix("0b"))]
         start_index = 8
     else:
         serial_inverse_ascii_bin_array = []
         start_index = 0
 
     if character_num_bytes == 2:
-        serial_inverse_ascii_bin_array.extend(flatten([[('%08d' % int(bin(ord(x)).lstrip("0b"))) , "00000000"] for x in serial_number]))
+        serial_inverse_ascii_bin_array.extend(flatten([[('%08d' % int(bin(ord(x)).removeprefix("0b"))) , "00000000"] for x in serial_number]))
     else:
-        serial_inverse_ascii_bin_array.extend(['%08d' % int(bin(ord(x)).lstrip("0b")) for x in serial_number])
+        serial_inverse_ascii_bin_array.extend(['%08d' % int(bin(ord(x)).removeprefix("0b")) for x in serial_number])
 
     serial_inverse_ascii_bin = ''.join(serial_inverse_ascii_bin_array)
 
@@ -180,16 +189,16 @@ if __name__ == "__main__":
 
     # Generate Serial String in Hex Format (inverse ASCII Table using "ord")
     if store_serial_length is True:
-        serial_inverse_ascii_hex_array = [str(hex(serial_length).lstrip("0x"))]
+        serial_inverse_ascii_hex_array = [str(hex(serial_length).removeprefix("0x"))]
         start_index = 1
     else:
         serial_inverse_ascii_hex_array = []
         start_index = 0
 
     if character_num_bytes == 2:
-        serial_inverse_ascii_hex_array.extend(flatten([[str(hex(ord(x)).lstrip("0x")) , "00"] for x in serial_number]))
+        serial_inverse_ascii_hex_array.extend(flatten([[str(hex(ord(x)).removeprefix("0x")) , "00"] for x in serial_number]))
     else:
-        serial_inverse_ascii_hex_array.extend([str(hex(ord(x)).lstrip("0x")) for x in serial_number])
+        serial_inverse_ascii_hex_array.extend([str(hex(ord(x)).removeprefix("0x")) for x in serial_number])
 
     serial_inverse_ascii_hex = ''.join(serial_inverse_ascii_hex_array)
 
@@ -231,6 +240,11 @@ if __name__ == "__main__":
     # Create Folder Structure
     device_path.mkdir(exist_ok=True, parents=True)
 
+    # Read a few Bytes from the Device
+    # This seems to make the entire Procedure much more Reliable.
+    # Previously (without this) there would be a lot of Timeout generated and the USB would drop out after a while.
+    subprocess.run([executable, f"--log-level=0", "--no-patch", "read", "FLASH", "0", "1024"], shell=False, check=True, capture_output=True)
+
     if backup:
         if dry_run is False:
             # Echo
@@ -248,13 +262,13 @@ if __name__ == "__main__":
             print("Dry Run: Backup Firmware")
 
     # Perform Modification (one go)
-    #### subprocess.run([executable, "--log-level=7", "write", "FLASH", address_SerialnumString_hex, ], shell=True, check=True)
-    #### subprocess.run([executable, "--log-level=7", "write", "FLASH", address_U2SerialnumString_hex, ], shell=True, check=True)
+    # ### subprocess.run([executable, "--log-level=7", "write", "FLASH", address_SerialnumString_hex, ], shell=True, check=True)
+    # ### subprocess.run([executable, "--log-level=7", "write", "FLASH", address_U2SerialnumString_hex, ], shell=True, check=True)
 
     # Perform Modification (Byte by Byte)
-    ####for index, value in enumerate(serial_inverse_ascii_dec_array):
-    #####    subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_SerialnumString_dec + index), str(value)], shell=False, check=True)
-    #####    subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_U2SerialnumString_dec + index), str(value)], shell=False, check=True)
+    # ###for index, value in enumerate(serial_inverse_ascii_dec_array):
+    # ####    subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_SerialnumString_dec + index), str(value)], shell=False, check=True)
+    # ####    subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_U2SerialnumString_dec + index), str(value)], shell=False, check=True)
 
     if dry_run is False:
         # Echo
@@ -307,8 +321,15 @@ if __name__ == "__main__":
     if data_file is None:
         data_file = f"{device_path}/ms2130.modified.flash.{timestamp}.bin"
     else:
-        data_file = f"{device_path}/{data_file}"
+        # Try Relative Path first
+        data_file = Path(data_file)
 
+        if data_file.exists() is False:
+            # Fall Back to use Filename inside Device Folder
+            data_file = f"{device_path}/{data_file.as_posix()}"
+
+    # Echo
+    print(f"Using Data File {data_file}")
 
     # file_contents = None
     with open(data_file, "r+b") as fh:
@@ -317,6 +338,24 @@ if __name__ == "__main__":
 
         # Split into Array
         file_contents_split = [file_contents_bytes[i] for i in range (0, len(file_contents_bytes))]
+
+        # Copy Variable
+        file_contents_split_original = copy(file_contents_split)
+
+        # Overwrite specific Positions for Serial Number
+        # This Way the File does NOT need to be generated AFTER Serial Number Configuration and the Stock Firmware Dump can be used instead
+        for index, value in enumerate(serial_inverse_ascii_dec_array):
+            # Echo
+            print(f"Overwrite at Address {hex(address_SerialnumString_dec + index)} in Array with Value {value}")
+
+            # Perform Operation
+            file_contents_split[address_SerialnumString_dec + index] = int(value)
+
+            # Echo
+            print(f"Overwrite at Address {hex(address_U2SerialnumString_dec + index)} in Array with Value {value}")
+
+            # Perform Operation
+            file_contents_split[address_U2SerialnumString_dec + index] = int(value)
 
         # Debug
         # pprint.pprint(file_contents_split)
@@ -331,7 +370,7 @@ if __name__ == "__main__":
         checksum_data_result_dec = checksum_data_sum % 65536
 
         # Calculate in HEX
-        checksum_data_result_hex = hex(checksum_data_result_dec).lstrip("0x")
+        checksum_data_result_hex = hex(checksum_data_result_dec).removeprefix("0x")
 
         # Debug
         print(f"Using File {data_file} for Checksum Analysis")
@@ -350,13 +389,13 @@ if __name__ == "__main__":
             subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(checksum_value_start_address_dec), "0x" + str(checksum_data_result_hex[0:2])], shell=False, check=True)
             subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(checksum_value_end_address_dec), "0x" + str(checksum_data_result_hex[2:4])], shell=False, check=True)
 
-        #### Convert that to String
-        #### file_contents_str = file_contents_bytes.decode("utf-16")
+        # ### Convert that to String
+        # ### file_contents_str = file_contents_bytes.decode("utf-16")
 
-        #### Convert to Numeric Values
-        #### file_contents_int = [int.from_bytes(file_contents_split[i], byteorder="big", signed=True) for i in range (0, len(file_contents_bytes))]
+        # ### Convert to Numeric Values
+        # ### file_contents_int = [int.from_bytes(file_contents_split[i], byteorder="big", signed=True) for i in range (0, len(file_contents_bytes))]
 
-        #### pprint.pprint(file_contents_int)
+        # ### pprint.pprint(file_contents_int)
 
     if dry_run is False:
         # Echo
