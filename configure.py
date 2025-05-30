@@ -50,6 +50,9 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--serial-length', dest="serial_length", required=False, type=int, default=16,
                         help='Serial Number Length')
 
+    parser.add_argument('-f', '--file', '--data-file', '--file-data', dest="data_file", required=False, default=None,
+                        help='Data File to compute Checksum from')
+
     parser.add_argument('-e', '--executable', dest="executable", required=True,
                         help='Path to ms-tools <cli> Executable')
 
@@ -85,6 +88,9 @@ if __name__ == "__main__":
         # Get Length of Serial Number
         # This Corresponds to the first Byte (uint8) at the Offset Position to be changed
         serial_length = len(serial_number)
+
+    # Data File
+    data_file = parsed.data_file
 
     # LOG Level
     log_level = parsed.log_level
@@ -271,30 +277,99 @@ if __name__ == "__main__":
             # Perform Operation
             subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(address_U2SerialnumString_dec + index), "0x" + str(value)], shell=False, check=True)
 
-    if backup:
+    # Echo
+    print("Backup updated Firmware from FLASH and EEPROM - Need to do so in order to compute Checksum-16")
+
+
+    if dry_run is False and data_file is None:
+        # Backup Firmware after Modification
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", "0", f"--filename={device_path}/ms2130.modified.flash.{timestamp}.bin"], shell=False, check=True)
+
+        # Backup EEPROM after Modification
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.modified.eeprom.{timestamp}.bin"], shell=False, check=True)
+
+    # Compute Checksum-16
+    checksum_data_start_address_hex = "0x0030"
+    checksum_data_end_address_hex = "0xFBCF"
+    # checksum_data_end_address_hex = "0xFBDF"
+
+    checksum_data_start_address_dec = int(checksum_data_start_address_hex, 0)
+    checksum_data_end_address_dec = int(checksum_data_end_address_hex, 0)
+
+    checksum_value_start_address_hex = "0xFBD2"
+    checksum_value_end_address_hex = "0xFBD3"
+
+    checksum_value_start_address_dec = int(checksum_value_start_address_hex, 0)
+    checksum_value_end_address_dec = int(checksum_value_end_address_hex, 0)
+
+    # byte = int(sys.argv[3], 0)
+
+    if data_file is None:
+        data_file = f"{device_path}/ms2130.modified.flash.{timestamp}.bin"
+    else:
+        data_file = f"{device_path}/{data_file}"
+
+
+    # file_contents = None
+    with open(data_file, "r+b") as fh:
+        # Read File Contents in Binary Format
+        file_contents_bytes = fh.read()
+
+        # Split into Array
+        file_contents_split = [file_contents_bytes[i] for i in range (0, len(file_contents_bytes))]
+
+        # Debug
+        # pprint.pprint(file_contents_split)
+
+        # Get Checksum Data Range
+        checksum_data_range = file_contents_split[checksum_data_start_address_dec:checksum_data_end_address_dec+1]
+
+        # Calculate Sum
+        checksum_data_sum = sum(checksum_data_range)
+
+        # Calculate Modulo 65535
+        checksum_data_result_dec = checksum_data_sum % 65536
+
+        # Calculate in HEX
+        checksum_data_result_hex = hex(checksum_data_result_dec).lstrip("0x")
+
+        # Debug
+        print(f"Using File {data_file} for Checksum Analysis")
+        print(f"Checksum Data Start Address: {checksum_data_start_address_hex}")
+        print(f"Checksum Data End Address: {checksum_data_end_address_hex}")
+        print(f"Checksum Data Number of Elements: {len(checksum_data_range)}")
+        print(f"Checksum Data Initial Values: {[hex(checksum_data_range[i]) for i in range(0, 16)]}")
+        print(f"Checksum Data Final Values: {[hex(checksum_data_range[i]) for i in range(len(checksum_data_range) - 1 - 16, len(checksum_data_range) - 1, 1)]}")
+        print(f"Row after last Checksum Data: {[hex(file_contents_split[i]) for i in range(checksum_data_end_address_dec + 1, checksum_data_end_address_dec + 16, 1)]}")
+        print(f"Checksum Data Sum: {checksum_data_sum}")
+        print(f"Checksum Data Result Decimal: {checksum_data_result_dec}")
+        print(f"Checksum Data Result Hex: 0x{checksum_data_result_hex}")
+
         if dry_run is False:
-            # Echo
-            print("Backup current Firmware from FLASH and EEPROM")
+            # Write new Checksum
+            subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(checksum_value_start_address_dec), "0x" + str(checksum_data_result_hex[0:2])], shell=False, check=True)
+            subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(checksum_value_end_address_dec), "0x" + str(checksum_data_result_hex[2:4])], shell=False, check=True)
 
-            # Backup Firmware after Modification
-            subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", "0", f"--filename={device_path}/ms2130.modified.flash.{timestamp}.bin"], shell=False, check=True)
+        #### Convert that to String
+        #### file_contents_str = file_contents_bytes.decode("utf-16")
 
-            # Backup EEPROM after Modification
-            subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.modified.eeprom.{timestamp}.bin"], shell=False, check=True)
+        #### Convert to Numeric Values
+        #### file_contents_int = [int.from_bytes(file_contents_split[i], byteorder="big", signed=True) for i in range (0, len(file_contents_bytes))]
 
-        else:
-            # Echo
-            print("Dry Run: Backup Firmware")
-
+        #### pprint.pprint(file_contents_int)
 
     if dry_run is False:
         # Echo
-        print("Read Value at Address after Operations")
+        print("Read Serial Number Value at Address after Operations")
 
         # Read Final Value
         subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", hex(address_SerialnumString_dec), "32"], shell=False, check=True)
         subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", hex(address_U2SerialnumString_dec), "32"], shell=False, check=True)
 
+        # Echo
+        print("Read Serial Number Checksum Value at Address after Operations")
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", hex(checksum_value_start_address_dec), "1"], shell=False, check=True)
+        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", hex(checksum_value_end_address_dec), "1"], shell=False, check=True)
     else:
         # Echo
-        print("Dry Run: read Value at Address after Operations")
+        print("Dry Run: read Serial Number Value at Address after Operations")
