@@ -140,7 +140,8 @@ if __name__ == "__main__":
     address_SerialnumString_dec = int(address_SerialnumString_hex, 0)
     address_U2SerialnumString_dec = int(address_U2SerialnumString_hex, 0)
 
-    print(f"Serial Number: {serial_number} (Length: {len(serial_number)})")
+    # Debug
+    # print(f"Serial Number: {serial_number} (Length: {len(serial_number)})")
 
     # Generate Serial String in Decimal Format (inverse ASCII Table using "ord")
     if store_serial_length is True:
@@ -163,7 +164,8 @@ if __name__ == "__main__":
 
     serial_inverse_ascii_dec_readable = serial_inverse_ascii_dec_readable + '-'.join(re.findall('...?', serial_inverse_ascii_dec[start_index:None]))
 
-    print(serial_inverse_ascii_dec_readable)
+    # Debug
+    # print(serial_inverse_ascii_dec_readable)
 
     # Generate Serial String in Binary Format (inverse ASCII Table using "ord")
     if store_serial_length is True:
