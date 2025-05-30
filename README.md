@@ -39,6 +39,20 @@ The Manufacturer and Version Information is configured starting at Address `0xFA
 
 ![Manufacturer and Version Location Addresses](./Manufacturer_Version_Location_Addresses.png)
 
+# Checksum
+A Firmware Checksum (Checksum-16 Algorithm) is implemented into the Firmware.
+
+The Checksum is stored at the Following Addresses in the Firmware Flash: `0xFBD2` and `0xFBD3`.
+
+![Checksum Location](./Checksum_Location.png)
+
+
+The Checksum is computed by adding (summing) all Data located between Addresses `0x0030` (included) and `0xFBCF` (included) and returning the Result in a 16 bit unsigned Format (2^16 = 65536).
+
+This Range of Data (Length: `0xFBA0`) seems to be defined at Address `0x0002` and `0x0003`.
+
+![Checksum Length](./Checksum_Length.png)
+
 # Requirements
 This Tool relies on downloading and installing [ms-tools](https://github.com/BertoldVdb/ms-tools).
 
