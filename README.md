@@ -4,6 +4,41 @@ ms2130-serial-number-configurator
 # Introduction
 This Tool attempts to change the Serial Number of MS2130 Devices and Configures a Random Serial Number for each Device.
 
+# Motivation
+I plan to use several of these MS2130 HDMI to USB Capture Cards for some cheap PiKVM Access to several Hosts.
+
+In order for this to work, the Serial Number must be unique between different Systems, in order to be consistent across Reboots.
+
+Even more so if passing the USB Device to a Docker/Podman/LXC Container, otherwise the Keyboard will map to the wrong Control Container between Reboots (with VERY weird Results).
+
+# Device
+This Tool has been Developed with MS2130 Device featuring the following Parameters:
+- VendorID: `345f` (UltraSemi)
+- ProductID: `2130` (MS2130)
+
+The HDMI to USB Capture Card arrived with the following Serial Number Programmed (on all Devices):
+```
+root@HOST:/# lsusb -d 345f:2130 -vvv 2>/dev/null | grep -i serial | awk '{print $3}'
+20210623
+```
+
+In this Device, the Serial Number is in a completely different Position as described in [this Repository](https://github.com/ultrasemier/ms213x_community?tab=readme-ov-file#user-data).
+The Serial Number is Located at:
+- Address Start (1): `0x00189F`
+- Address Start (2): `0x0018E3`
+
+![Serial Number Location Addresses](./Serial_Number_Location_Addresses.png)
+
+I attempted to flash 16 Characters long Serial Numbers, however only the first 8 Characters are displayed in the Output of `lsusb`.
+
+A Limit of 16 Characters has been set in order to prevent overwriting the next Data Block in the Firmware but even so, only 8 Characters will be displayed.
+
+For this Reason, I don't think it makes sense to generate a Serial Number with more than 8 Characters, which is the Default Setting.
+
+The Manufacturer and Version Information is configured starting at Address `0xFA51`.
+
+![Manufacturer and Version Location Addresses](./Manufacturer_Version_Location_Addresses.png)
+
 # Requirements
 This Tool relies on downloading and installing [ms-tools](https://github.com/BertoldVdb/ms-tools).
 
@@ -43,7 +78,13 @@ Faster Method - skip Backup before AND After Serial Number Customization (NOT re
 sudo ./configure.py --executable=./ms-tools/cli/cli --serial=0123456789 --log-level=2 --no-backup --file=firmware.stock.flash.bin
 ```
 
+**IMPORTANT: Make sure to disconnect & reconnect the HDMI USB Capture Card after changing the Serial Number, in order for the Changes to take Effect**.
+
 # Verify Serial Number Change
+```
+root@HOST:/# lsusb -d 345f:2130 -vvv 2>/dev/null | grep -i serial | awk '{print $3}'
+L9CSC34P
+```
 
 # Testing Capture
 720p:
@@ -55,7 +96,6 @@ ffplay -fflags nobuffer -input_format mjpeg -video_size 1280x720 -framerate 60 -
 ```
 ffplay -fflags nobuffer -input_format mjpeg -video_size 1920x1024 -framerate 60 -color_range pc /dev/video3
 ```
-
 
 # References
 - https://github.com/BertoldVdb/ms-tools
