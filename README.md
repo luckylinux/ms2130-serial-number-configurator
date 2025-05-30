@@ -1,8 +1,8 @@
-# ms2310-serial-number-configurator
-ms2310-serial-number-configurator
+# ms2130-serial-number-configurator
+ms2130-serial-number-configurator
 
 # Introduction
-This Tool attempts to change the Serial Number of MS2310 Devices and Configures a Random Serial Number for each Device.
+This Tool attempts to change the Serial Number of MS2130 Devices and Configures a Random Serial Number for each Device.
 
 # Requirements
 This Tool relies on downloading and installing [ms-tools](https://github.com/BertoldVdb/ms-tools).
