@@ -12,6 +12,8 @@ In order for this to work, the Serial Number must be unique between different Sy
 Even more so if passing the USB Device to a Docker/Podman/LXC Container, otherwise the Keyboard will map to the wrong Control Container between Reboots (with VERY weird Results).
 
 # Device
+The Device that I bought is the following: https://www.aliexpress.com/item/1005004990708725.html (Shape B), sold by OllyMurs Factory Store and bought in May 2025.
+
 This Tool has been Developed with MS2130 Device featuring the following Parameters:
 - VendorID: `345f` (UltraSemi)
 - ProductID: `2130` (MS2130)
