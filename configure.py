@@ -137,9 +137,11 @@ if __name__ == "__main__":
     serial_number = serial_number + "".join([padding_character for x in range(serial_length, serial_fixed_length)])
 
     # Define Start Addresses for the Serial in Hex
-    # Does NOT seem to work
     address_SerialnumString_hex = "0x00189F"
     address_U2SerialnumString_hex = "0x0018E3"
+
+    # Define Start Addresses for the Serial in Hex
+    # These Addresses mentioned in one of the References Repository does NOT seem to work
     # address_SerialnumString_hex = "0x00FB50"
     # address_U2SerialnumString_hex = "0x00FB70"
     # address_SerialnumString_hex = "0x00FB20"
@@ -197,7 +199,6 @@ if __name__ == "__main__":
 
     serial_inverse_ascii_bin_readable = serial_inverse_ascii_bin_readable + '-'.join(re.findall('........?', serial_inverse_ascii_bin[start_index:None]))
 
-
     # Generate Serial String in Hex Format (inverse ASCII Table using "ord")
     if store_serial_length is True:
         serial_inverse_ascii_hex_array = [str(hex(serial_length).removeprefix("0x"))]
@@ -219,11 +220,6 @@ if __name__ == "__main__":
 
     serial_inverse_ascii_hex_readable = serial_inverse_ascii_hex_readable + '-'.join(re.findall('..?', serial_inverse_ascii_hex[start_index:None]))
 
-    # Convert list of Bytes to Decimal
-    # serial_number_value = 0
-    # for bit in serial_inverse_ascii_bin:
-    #     serial_number_value = (serial_number_value << 1) | int(bit)
-
     # Print
     print(f"Serial Number: {serial_number}")
     print(f"\tSerial Number Length: {serial_length}")
@@ -243,10 +239,6 @@ if __name__ == "__main__":
     print(f"Serial Length + Serial Number Bin Representation: {serial_inverse_ascii_bin}")
     print(f"Serial Length + Serial Number Bin Representation: {serial_inverse_ascii_bin_readable}")
     print("================================================================================================================================")
-    # print(f"Serial Number overall Value: {serial_number_value}")
-
-    # Abort for Debugging
-    # sys.exit(5)
 
     # Create Folder Structure
     device_path.mkdir(exist_ok=True, parents=True)
@@ -259,27 +251,19 @@ if __name__ == "__main__":
     if backup:
         if dry_run is False:
             # Echo
-            print("Backup current Firmware from FLASH and EEPROM")
+            print("Backup current Firmware from FLASH")
 
             # Backup current Firmware
-            ##### cmd_read = [executable, "--log-level=7", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.bin"]
-            ##### print(f"Executing BACKUP: {cmd_read}")
             subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", "0", f"--filename={device_path}/ms2130.original.flash.{timestamp}.bin"], shell=False, check=True)
 
+            # Echo
+            # print("Backup current Firmware from EEPROM")
+
             # Backup current EEPROM
-            subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.original.eeprom.{timestamp}.bin"], shell=False, check=True)
+            # subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.original.eeprom.{timestamp}.bin"], shell=False, check=True)
         else:
             # Echo
             print("Dry Run: Backup Firmware")
-
-    # Perform Modification (one go)
-    # ### subprocess.run([executable, "--log-level=7", "write", "FLASH", address_SerialnumString_hex, ], shell=True, check=True)
-    # ### subprocess.run([executable, "--log-level=7", "write", "FLASH", address_U2SerialnumString_hex, ], shell=True, check=True)
-
-    # Perform Modification (Byte by Byte)
-    # ###for index, value in enumerate(serial_inverse_ascii_dec_array):
-    # ####    subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_SerialnumString_dec + index), str(value)], shell=False, check=True)
-    # ####    subprocess.run([executable, f"--log-level={log_level}", "write", "FLASH", hex(address_U2SerialnumString_dec + index), str(value)], shell=False, check=True)
 
     if dry_run is False:
         # Echo
@@ -307,16 +291,21 @@ if __name__ == "__main__":
 
 
     if dry_run is False and data_file is None:
+        # Echo
+        print("Backup modified Firmware from FLASH")
+
         # Backup Firmware after Modification
         subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "FLASH", "0", f"--filename={device_path}/ms2130.modified.flash.{timestamp}.bin"], shell=False, check=True)
 
+        # Echo
+        # print("Backup modified Firmware from EEPROM")
+
         # Backup EEPROM after Modification
-        subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.modified.eeprom.{timestamp}.bin"], shell=False, check=True)
+        # subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "read", "EEPROM", "0", f"--filename={device_path}/ms2130.modified.eeprom.{timestamp}.bin"], shell=False, check=True)
 
     # Compute Checksum-16
     checksum_data_start_address_hex = "0x0030"
     checksum_data_end_address_hex = "0xFBCF"
-    # checksum_data_end_address_hex = "0xFBDF"
 
     checksum_data_start_address_dec = int(checksum_data_start_address_hex, 0)
     checksum_data_end_address_dec = int(checksum_data_end_address_hex, 0)
@@ -326,8 +315,6 @@ if __name__ == "__main__":
 
     checksum_value_start_address_dec = int(checksum_value_start_address_hex, 0)
     checksum_value_end_address_dec = int(checksum_value_end_address_hex, 0)
-
-    # byte = int(sys.argv[3], 0)
 
     if data_file is None:
         data_file = f"{device_path}/ms2130.modified.flash.{timestamp}.bin"
@@ -399,14 +386,6 @@ if __name__ == "__main__":
             # Write new Checksum
             subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(checksum_value_start_address_dec), "0x" + str(checksum_data_result_hex[0:2])], shell=False, check=True)
             subprocess.run([executable, f"--log-level={log_level}", "--no-patch", "write", "FLASH", hex(checksum_value_end_address_dec), "0x" + str(checksum_data_result_hex[2:4])], shell=False, check=True)
-
-        # ### Convert that to String
-        # ### file_contents_str = file_contents_bytes.decode("utf-16")
-
-        # ### Convert to Numeric Values
-        # ### file_contents_int = [int.from_bytes(file_contents_split[i], byteorder="big", signed=True) for i in range (0, len(file_contents_bytes))]
-
-        # ### pprint.pprint(file_contents_int)
 
     if dry_run is False:
         # Echo
