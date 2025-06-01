@@ -72,6 +72,9 @@ if __name__ == "__main__":
     parser.add_argument('--dry-run', dest="dry_run", required=False, default=False,
                         help='Perform a Dry Run (do NOT flash / patch)', action="store_true")
 
+    parser.add_argument('--verify', dest="verify", required=False, default=True,
+                        help='Verify that the Serial Number is correct after Flashing (requires Power Cycle)', action="store_true")
+
     # Generate Timestamp for Backups
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d-%H-%M-%S")
@@ -102,6 +105,9 @@ if __name__ == "__main__":
     # Dry Run
     dry_run = parsed.dry_run
 
+    # Verify
+    verify = parsed.verify
+
     # CLI Executable
     executable = parsed.executable
 
@@ -121,6 +127,9 @@ if __name__ == "__main__":
     elif serial_length > serial_fixed_length:
        print(f"ERROR: Serial Number must have at most {serial_fixed_length} Characters")
        sys.exit(2)
+
+    # Save Variable without padding
+    serial_number_nonpadded = serial_number
 
     # Add Padding to the End of the Serial Number
     # padding_character = chr(255)
@@ -414,3 +423,33 @@ if __name__ == "__main__":
     else:
         # Echo
         print("Dry Run: read Serial Number Value at Address after Operations")
+
+
+    if verify:
+        # Reset Device
+        x = input("Disconnect & Reconnect MS2130 Device (Power Cycle) and press [ENTER]: ")
+
+        # Get Serial Number via lsusb
+        result = subprocess.run(["/usr/bin/lsusb", "-vvv", "-d", "345f:2130"], shell=False, check=False, capture_output=True)
+
+        output = result.stdout.decode()
+
+        for line in output.splitlines():
+            # Debug
+            # print(f"Processing Line: {line}")
+
+            if "iSerial" in line:
+                items = line.split()
+                serial = items[-1]
+
+                # Echo
+                print(f"Serial Number on Device: {serial}")
+
+                # Check against what was supposed to be there
+                if serial == serial_number_nonpadded:
+                    print(f"Serial Number matches UNPADDED Serial Number")
+                elif serial == serial_number:
+                    print(f"Serial Number matches PADDED Serial Number")
+                else:
+                    print(f"ERROR: Serial Number on Device ({serial}) does NOT match UNPADDED ({serial_number_nonpadded}) nor PADDED ({serial_number}) Serial Numbers !!!")
+

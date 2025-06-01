@@ -63,7 +63,7 @@ Easy install (requires `go` to be installed on your System):
 2. `cd ms-tools/cli`
 3. `go build`
 
-# Using the Script
+# Initial Backup using ms-tools
 The `ms-tools` requires Super-User (`root` or `sudo`) Privileges in order to access the Device Memory.
 
 First of all, it's reccomended to Dump the Stock Firmware FLASH once Manually and store it in a Safe Place:
@@ -76,27 +76,27 @@ And the EEPROM as well, although it's apparently not being used on the MS2130:
 ./cli --log-level=7 read EEPROM 0 --filename=firmware.stock.eeprom.bin
 ```
 
-# Usage Examples
-Configure custom Serial and reduce Logging to a Minimum:
-```
-sudo ./configure.py --executable ./ms-tools/cli/cli --serial 0123456789 --log-level=2
-```
-
+# Using the Serial Number (Re)Configuration Script
 Configure using random Serial and reduce Logging to a Minimum:
 ```
-sudo ./configure.py --executable ./ms-tools/cli/cli --log-level=2
+sudo ./configure.py --executable ./ms-tools/cli/cli --log-level=0
 ```
 
-Configure using random Serial, reduce Logging ms2130.modified.flash.2025-05-30-07-08-35.bin
+Configure custom Serial and reduce Logging to a Minimum:
+```
+sudo ./configure.py --executable ./ms-tools/cli/cli --log-level=0 --serial 0123456789
+```
 
 Faster Method - skip Backup before AND After Serial Number Customization (NOT reccomended):
 ```
-sudo ./configure.py --executable=./ms-tools/cli/cli --serial=0123456789 --log-level=2 --no-backup --file=firmware.stock.flash.bin
+sudo ./configure.py --executable=./ms-tools/cli/cli --log-level=0 --serial=0123456789 --no-backup --file=firmware.stock.flash.bin
 ```
 
+As part of the Final Step in `configure.py`, a Power Cycle is Requested to the User (Disconnect & Reconnect MS2130 Device) and the expected Serial Number is compared against the Output of `lsusb`.
+
+# Manually Verify Serial Number Change
 **IMPORTANT: Make sure to disconnect & reconnect the HDMI USB Capture Card after changing the Serial Number, in order for the Changes to take Effect**.
 
-# Verify Serial Number Change
 ```
 root@HOST:/# lsusb -d 345f:2130 -vvv 2>/dev/null | grep -i serial | awk '{print $3}'
 L9CSC34P

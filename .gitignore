@@ -12,3 +12,6 @@ ms-tools/**
 stock-firmware
 stock-firmware/*
 stock-firmware/**
+
+# Ignore venv
+
