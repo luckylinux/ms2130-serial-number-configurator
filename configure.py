@@ -3,6 +3,7 @@
 
 # Import Libraries
 import argparse
+import time
 import pprint
 import re
 from secrets import choice
@@ -407,6 +408,9 @@ if __name__ == "__main__":
     if verify:
         # Reset Device
         x = input("Disconnect & Reconnect MS2130 Device (Power Cycle) and press [ENTER]: ")
+
+        # Add a small Delay
+        time.sleep(2)
 
         # Get Serial Number via lsusb
         result = subprocess.run(["/usr/bin/lsusb", "-vvv", "-d", "345f:2130"], shell=False, check=False, capture_output=True)
